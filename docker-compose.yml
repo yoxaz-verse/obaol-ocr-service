@@ -1,0 +1,42 @@
+services:
+  redis:
+    image: redis:7.4-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  api:
+    build: .
+    environment:
+      SERVICE_MODE: api
+      API_KEY: ${API_KEY:-local-development-api-key-change-me}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    mem_limit: 1g
+    cpus: 2
+    restart: unless-stopped
+
+  worker:
+    build: .
+    environment:
+      SERVICE_MODE: worker
+      API_KEY: ${API_KEY:-local-development-api-key-change-me}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g,mode=1777
+    mem_limit: 2g
+    cpus: 2
+    restart: unless-stopped
+
+volumes:
+  redis-data:

@@ -1,0 +1,33 @@
+name: Quality
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-eng
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: ruff check app tests
+      - run: mypy app
+      - run: bandit -q -r app
+      - run: pip-audit -r requirements.txt
+      - run: pytest
+        env:
+          API_KEY: ci-api-key-at-least-twenty-four-characters
+          REDIS_URL: redis://localhost:6379/15
+      - name: Verify OpenAPI contract
+        run: |
+          API_KEY=ci-api-key-at-least-twenty-four-characters REDIS_REQUIRED=false python -m scripts.generate_openapi
+          git diff --exit-code -- openapi.json
